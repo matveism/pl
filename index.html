@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Courier Handheld System</title>
+  <meta name="viewport" content="width=240, height=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- Barcode Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    /* BASE LAYOUT: 240x320 QVGA */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 240px;
+      height: 320px;
+      background: #000;
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      color: #FFFFFF;
+      overflow: hidden;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 240px;
+      height: 320px;
+      background: #101010;
+      display: none;
+    }
+
+    .screen.active { display: block; }
+
+    /* HEADER (48px) */
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 240px;
+      height: 48px;
+      background: #F7C600;
+      color: #000000;
+      font-weight: bold;
+    }
+
+    .header-top-row {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      right: 4px;
+      height: 16px;
+      font-size: 10px;
+    }
+
+    .header-top-left { float: left; }
+    .header-top-right { float: right; }
+
+    .header-title {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      right: 4px;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* FOOTER (42px) */
+    .footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 240px;
+      height: 42px;
+      background: #303030;
+      color: #FFFFFF;
+      font-size: 10px;
+    }
+
+    .footer-left {
+      position: absolute;
+      left: 6px;
+      top: 14px;
+    }
+
+    .footer-right {
+      position: absolute;
+      right: 6px;
+      top: 14px;
+      text-align: right;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sync-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #00CC33;
+      border-radius: 4px;
+    }
+
+    .sync-dot.offline { background: #CC0000; }
+    .sync-dot.syncing { background: #FF9900; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* CONTENT AREA (230px) */
+    .content {
+      position: absolute;
+      top: 48px;
+      left: 0;
+      width: 240px;
+      height: 230px;
+      background: #101010;
+      overflow: hidden;
+    }
+
+    /* MAIN MENU GRID */
+    .menu-grid {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 224px;
+      height: 214px;
+    }
+
+    .menu-button {
+      position: absolute;
+      width: 104px;
+      height: 96px;
+      background: #1A1A1A;
+      border-radius: 6px;
+      border: 1px solid #444444;
+      text-align: center;
+      color: #FFFFFF;
+      cursor: pointer;
+    }
+
+    .menu-button:active {
+      background: #2A2A2A;
+      border-color: #F7C600;
+    }
+
+    .menu-button-title {
+      position: absolute;
+      bottom: 10px;
+      left: 4px;
+      right: 4px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .menu-button-icon {
+      position: absolute;
+      top: 18px;
+      left: 0;
+      right: 0;
+      font-size: 26px;
+    }
+
+    .menu-button-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: #CC0000;
+      color: white;
+      font-size: 9px;
+      padding: 2px 4px;
+      border-radius: 8px;
+      min-width: 14px;
+      text-align: center;
+    }
+
+    .btn-scan { top: 0; left: 0; }
+    .btn-deliver { top: 0; left: 116px; }
+    .btn-pickup { top: 104px; left: 0; }
+    .btn-msg { top: 104px; left: 116px; }
+
+    /* BUTTONS */
+    .btn {
+      background: #2A2A2A;
+      border: 1px solid #555555;
+      border-radius: 4px;
+      color: #FFFFFF;
+      padding: 4px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn:active:not(:disabled) {
+      background: #3A3A3A;
+    }
+
+    .btn-primary {
+      background: #F7C600;
+      color: #000000;
+      border-color: #C9A200;
+      font-weight: bold;
+    }
+
+    .btn-primary:active { background: #D8B200; }
+
+    .btn-danger {
+      background: #CC0000;
+      color: #FFFFFF;
+      border-color: #990000;
+    }
+
+    .btn-success {
+      background: #00CC33;
+      color: #FFFFFF;
+      border-color: #009926;
+    }
+
+    .btn-block {
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+
+    .btn-row { margin-top: 6px; }
+
+    /* LISTS */
+    .list {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      overflow-y: auto;
+      border: 1px solid #333333;
+      background: #181818;
+    }
+
+    .list-item {
+      padding: 4px;
+      border-bottom: 1px solid #333333;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .list-item:active { background: #2A2A2A; }
+
+    .list-item-title {
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .list-item-sub {
+      font-size: 10px;
+      color: #CCCCCC;
+    }
+
+    .list-item.unread { border-left: 3px solid #F7C600; }
+    .list-item.priority-high { border-left: 3px solid #FF9900; }
+    .list-item.priority-urgent { border-left: 3px solid #CC0000; }
+
+    /* SCAN SCREEN */
+    .scan-view {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 40px;
+      border: 1px solid #444444;
+      background: #000000;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    #qr-reader {
+      width: 100% !important;
+      height: 100% !important;
+      padding: 0 !important;
+    }
+
+    #qr-reader__scan_region {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #qr-reader__dashboard {
+      display: none !important;
+    }
+
+    .scan-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 120px;
+      height: 60px;
+      margin-left: -60px;
+      margin-top: -30px;
+      border: 2px dashed #F7C600;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .scan-label {
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: #888888;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 2px;
+    }
+
+    .scan-buttons {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      height: 32px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .scan-buttons .btn { flex: 1; }
+
+    /* SCANNER CONTROLS */
+    .scanner-controls {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .scanner-info {
+      position: absolute;
+      top: 30px;
+      left: 4px;
+      right: 4px;
+      font-size: 10px;
+      color: #F7C600;
+      text-align: center;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 2px;
+    }
+
+    /* STOP DETAIL */
+    .stop-header {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      height: 52px;
+      border: 1px solid #333333;
+      background: #181818;
+      padding: 4px;
+      font-size: 11px;
+      overflow-y: auto;
+    }
+
+    .stop-body {
+      position: absolute;
+      top: 60px;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+    }
+
+    .stop-buttons .btn { margin-bottom: 4px; }
+
+    /* SIGNATURE PAD */
+    .signature-container {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 40px;
+    }
+
+    .signature-pad {
+      width: 100%;
+      height: 120px;
+      background: #FFFFFF;
+      border: 1px solid #444444;
+      touch-action: none;
+    }
+
+    .signature-name {
+      margin-top: 4px;
+    }
+
+    .signature-buttons {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .signature-buttons .btn { flex: 1; }
+
+    /* EXCEPTION DETAIL */
+    .exception-detail {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 40px;
+      border: 1px solid #333333;
+      background: #181818;
+      padding: 4px;
+      font-size: 11px;
+      overflow-y: auto;
+    }
+
+    .field-label {
+      font-size: 10px;
+      color: #CCCCCC;
+      margin-top: 4px;
+    }
+
+    .field-input {
+      width: 100%;
+      font-size: 11px;
+      padding: 2px;
+      margin-top: 2px;
+      background: #000000;
+      color: #FFFFFF;
+      border: 1px solid #555555;
+    }
+
+    .field-input:focus {
+      border-color: #F7C600;
+      outline: none;
+    }
+
+    textarea.field-input {
+      resize: none;
+      height: 40px;
+    }
+
+    /* LOGIN SCREEN */
+    .login-container {
+      position: absolute;
+      top: 60px;
+      left: 20px;
+      right: 20px;
+      text-align: center;
+    }
+
+    .login-input {
+      width: 180px;
+      height: 30px;
+      font-size: 16px;
+      text-align: center;
+      margin-bottom: 10px;
+      background: #000;
+      color: #FFF;
+      border: 1px solid #555;
+    }
+
+    .login-input:focus {
+      border-color: #F7C600;
+      outline: none;
+    }
+
+    /* STATUS COLORS */
+    .status-pending { color: #FF9900; }
+    .status-delivered, .status-picked-up, .status-scanned { color: #00CC33; }
+    .status-exception { color: #CC0000; }
+
+    .status-text { font-size: 10px; margin-top: 4px; }
+    .loading { color: #F7C600; }
+    .success { color: #00CC33; }
+    .error { color: #CC0000; }
+    .warning { color: #FF9900; }
+
+    .hidden { display: none !important; }
+
+    .link {
+      color: #F7C600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* GPS STATUS */
+    .gps-status {
+      font-size: 9px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .gps-status.active { color: #00CC33; }
+    .gps-status.error { color: #CC0000; }
+
+    /* OFFLINE INDICATOR */
+    .offline-banner {
+      position: fixed;
+      top: 48px;
+      left: 0;
+      right: 0;
+      background: #CC0000;
+      color: white;
+      text-align: center;
+      font-size: 10px;
+      padding: 2px;
+      z-index: 100;
+    }
+
+    .offline-banner.hidden { display: none; }
+
+    /* MESSAGE DETAIL */
+    .message-detail {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      border: 1px solid #333333;
+      background: #181818;
+      padding: 6px;
+      font-size: 11px;
+      overflow-y: auto;
+    }
+
+    .message-from {
+      font-weight: bold;
+      color: #F7C600;
+    }
+
+    .message-time {
+      font-size: 9px;
+      color: #888;
+    }
+
+    .message-body {
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* SCAN HISTORY */
+    .scan-item {
+      padding: 4px;
+      border-bottom: 1px solid #333;
+      font-size: 10px;
+    }
+
+    .scan-barcode {
+      font-family: monospace;
+      color: #F7C600;
+    }
+
+    /* SCANNER SPECIFIC */
+    #html5qr-code-full-region {
+      border: none !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #html5qr-code-full-region_scan_region {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #html5qr-code-full-region_scan_region img {
+      display: none !important;
+    }
+
+    video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- OFFLINE BANNER -->
+  <div id="offline-banner" class="offline-banner hidden">
+    ⚠ OFFLINE MODE - Data will sync when online
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="screen-login" class="screen active">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left">Courier System</div>
+        <div class="header-top-right">v2.0</div>
+      </div>
+      <div class="header-title">Login Required</div>
+    </div>
+    <div class="content">
+      <div class="login-container">
+        <div style="margin-bottom: 15px; font-size: 14px;">Enter Courier ID:</div>
+        <input type="text" id="courier-id-input" class="login-input" maxlength="10" placeholder="Enter ID" onkeypress="if(event.key==='Enter')performLogin()">
+        <div class="btn-row">
+          <button class="btn btn-primary btn-block" onclick="performLogin()" id="login-btn">LOGIN</button>
+        </div>
+        <div id="login-status" class="status-text"></div>
+        <div id="gps-login-status" class="gps-status"></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left">Device: CS400</div>
+      <div class="footer-right">
+        <span id="network-status">Checking...</span>
+        <span class="sync-dot" id="login-sync-dot"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div id="screen-home" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="home-time">--:--</div>
+        <div class="header-top-right" id="home-courier">ID: --</div>
+      </div>
+      <div class="header-title">Courier Menu</div>
+    </div>
+    <div class="content">
+      <div class="menu-grid">
+        <div class="menu-button btn-scan" onclick="goToScanFromHome()">
+          <div class="menu-button-icon">▦</div>
+          <div class="menu-button-title">SCAN</div>
+          <div class="menu-button-badge" id="scan-badge">0</div>
+        </div>
+        <div class="menu-button btn-deliver" onclick="loadDeliveries()">
+          <div class="menu-button-icon">◎</div>
+          <div class="menu-button-title">DELIVERIES</div>
+          <div class="menu-button-badge" id="delivery-badge">0</div>
+        </div>
+        <div class="menu-button btn-pickup" onclick="loadPickups()">
+          <div class="menu-button-icon">⬆</div>
+          <div class="menu-button-title">PICKUPS</div>
+          <div class="menu-button-badge" id="pickup-badge">0</div>
+        </div>
+        <div class="menu-button btn-msg" onclick="loadMessages()">
+          <div class="menu-button-icon">✉</div>
+          <div class="menu-button-title">MESSAGES</div>
+          <div class="menu-button-badge" id="message-badge">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left">
+        <span id="route-info">0/0</span>
+        <span id="home-gps" class="gps-status"></span>
+      </div>
+      <div class="footer-right">
+        <span id="pending-sync">0</span> pending
+        <span class="sync-dot" id="sync-dot"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELIVERIES LIST -->
+  <div id="screen-deliveries" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="deliveries-time">--:--</div>
+        <div class="header-top-right">Deliveries</div>
+      </div>
+      <div class="header-title">Delivery Stops</div>
+    </div>
+    <div class="content">
+      <div class="list" id="deliveries-list"></div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-home')">◀ Menu</span></div>
+      <div class="footer-right">Count: <span id="deliveries-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- PICKUPS LIST -->
+  <div id="screen-pickups" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="pickups-time">--:--</div>
+        <div class="header-top-right">Pickups</div>
+      </div>
+      <div class="header-title">Pickup Stops</div>
+    </div>
+    <div class="content">
+      <div class="list" id="pickups-list"></div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-home')">◀ Menu</span></div>
+      <div class="footer-right">Count: <span id="pickups-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- MESSAGES LIST -->
+  <div id="screen-messages" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="messages-time">--:--</div>
+        <div class="header-top-right">Messages</div>
+      </div>
+      <div class="header-title">Inbox</div>
+    </div>
+    <div class="content">
+      <div class="list" id="messages-list"></div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-home')">◀ Menu</span></div>
+      <div class="footer-right">Unread: <span id="unread-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- MESSAGE DETAIL -->
+  <div id="screen-message-detail" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="message-detail-time">--:--</div>
+        <div class="header-top-right">Message</div>
+      </div>
+      <div class="header-title" id="message-subject">--</div>
+    </div>
+    <div class="content">
+      <div class="message-detail">
+        <div class="message-from" id="message-from">--</div>
+        <div class="message-time" id="message-timestamp">--</div>
+        <div class="message-body" id="message-body">--</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-messages')">◀ Back</span></div>
+      <div class="footer-right"></div>
+    </div>
+  </div>
+
+  <!-- STOP DETAIL -->
+  <div id="screen-stop" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="stop-time">--:--</div>
+        <div class="header-top-right" id="stop-number">Stop --</div>
+      </div>
+      <div class="header-title" id="stop-name">--</div>
+    </div>
+    <div class="content">
+      <div class="stop-header" id="stop-details"></div>
+      <div class="stop-body">
+        <div class="stop-buttons">
+          <div class="btn-row">
+            <button class="btn btn-primary btn-block" onclick="goToScan()">Scan Package</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-success btn-block" id="mark-complete-btn" onclick="goToSignature()">Mark Complete</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger btn-block" onclick="go('screen-exceptions')">Mark Exception</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-block" onclick="go('screen-scan-history')">Scan History</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" id="stop-back-link" onclick="goBackFromStop()">◀ Back</span></div>
+      <div class="footer-right">Status: <span id="stop-status">--</span></div>
+    </div>
+  </div>
+
+  <!-- SCAN SCREEN -->
+  <div id="screen-scan" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="scan-time">--:--</div>
+        <div class="header-top-right">Scanner</div>
+      </div>
+      <div class="header-title">Scan Package</div>
+    </div>
+    <div class="content">
+      <div class="scan-view" id="scanner-container">
+        <div id="qr-reader"></div>
+        <div class="scan-crosshair"></div>
+        <div class="scan-label">Align barcode within box</div>
+        <div class="scanner-info">
+          Stop: <span id="current-stop-scan">--</span> | 
+          GPS: <span id="scan-gps">--</span>
+        </div>
+      </div>
+      <div class="scan-buttons">
+        <button class="btn" onclick="stopScanner(); goBackFromScan()">Cancel</button>
+        <button class="btn btn-primary" id="start-scanner-btn" onclick="initScanner()">Start Camera</button>
+        <button class="btn" onclick="manualBarcodeEntry()">Manual</button>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="stopScanner(); goBackFromScan()">◀ Back</span></div>
+      <div class="footer-right">Today: <span id="today-scans">0</span></div>
+    </div>
+  </div>
+
+  <!-- SCAN HISTORY -->
+  <div id="screen-scan-history" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="scan-history-time">--:--</div>
+        <div class="header-top-right">History</div>
+      </div>
+      <div class="header-title">Scan History</div>
+    </div>
+    <div class="content">
+      <div class="list" id="scan-history-list"></div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="goBackFromScanHistory()">◀ Back</span></div>
+      <div class="footer-right">Total: <span id="scan-history-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- SIGNATURE SCREEN -->
+  <div id="screen-signature" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="signature-time">--:--</div>
+        <div class="header-top-right">Signature</div>
+      </div>
+      <div class="header-title">Capture Signature</div>
+    </div>
+    <div class="content">
+      <div class="signature-container">
+        <div class="field-label">Sign below:</div>
+        <canvas id="signature-canvas" class="signature-pad" width="228" height="120"></canvas>
+        <div class="signature-name">
+          <div class="field-label">Print Name:</div>
+          <input type="text" id="signer-name" class="field-input" placeholder="Enter name...">
+        </div>
+        <div style="margin-top: 4px;">
+          <div class="field-label">Relationship:</div>
+          <select id="signer-relationship" class="field-input">
+            <option value="RECIPIENT">Recipient</option>
+            <option value="FAMILY">Family Member</option>
+            <option value="NEIGHBOR">Neighbor</option>
+            <option value="DOORMAN">Doorman/Concierge</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="signature-buttons">
+        <button class="btn" onclick="clearSignature()">Clear</button>
+        <button class="btn" onclick="go('screen-stop')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSignatureAndComplete()">Save</button>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-stop')">◀ Back</span></div>
+      <div class="footer-right">Sign above</div>
+    </div>
+  </div>
+
+  <!-- EXCEPTIONS LIST -->
+  <div id="screen-exceptions" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="exceptions-time">--:--</div>
+        <div class="header-top-right">Exception</div>
+      </div>
+      <div class="header-title">Select Type</div>
+    </div>
+    <div class="content">
+      <div class="list" id="exceptions-list"></div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-stop')">◀ Stop</span></div>
+      <div class="footer-right">Select one</div>
+    </div>
+  </div>
+
+  <!-- EXCEPTION DETAIL -->
+  <div id="screen-exception-detail" class="screen">
+    <div class="header">
+      <div class="header-top-row">
+        <div class="header-top-left" id="exception-detail-time">--:--</div>
+        <div class="header-top-right">Exception</div>
+      </div>
+      <div class="header-title" id="exception-title">--</div>
+    </div>
+    <div class="content">
+      <div class="exception-detail">
+        <div class="field-label">Notes (Required):</div>
+        <textarea class="field-input" id="exception-notes" placeholder="Describe the issue..."></textarea>
+
+        <div class="field-label">Action Taken:</div>
+        <select class="field-input" id="exception-action">
+          <option value="">Select action...</option>
+          <option value="LEFT_AT_DOOR">Left at door</option>
+          <option value="LEFT_WITH_NEIGHBOR">Left with neighbor</option>
+          <option value="RETURN_TO_DEPOT">Return to depot</option>
+          <option value="RESCHEDULE">Reschedule delivery</option>
+          <option value="SAFE_PLACE">Left in safe place</option>
+          <option value="OTHER">Other</option>
+        </select>
+
+        <div class="field-label">Contact Attempted:</div>
+        <select class="field-input" id="exception-contact">
+          <option value="NONE">No contact</option>
+          <option value="DOORBELL">Rang doorbell</option>
+          <option value="KNOCKED">Knocked on door</option>
+          <option value="PHONE_CALL">Phone call</option>
+          <option value="SMS">Sent SMS</option>
+        </select>
+
+        <div class="gps-status" id="exception-gps">GPS: --</div>
+      </div>
+      <div class="signature-buttons">
+        <button class="btn" onclick="go('screen-exceptions')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveException()">Save</button>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-left"><span class="link" onclick="go('screen-exceptions')">◀ Back</span></div>
+      <div class="footer-right"></div>
+    </div>
+  </div>
+
+<script>
+// ==============================================
+// CONFIGURATION
+// ==============================================
+const CONFIG = {
+  API_BASE_URL: 'https://script.google.com/macros/s/AKfycbz4gSaznBEoRbdR4bJVvdySMv6MxDpz68Wx475huyDvZfmiPa2stt4-mwsULoKRR3LP7g/exec',
+  COURIER_ID: null,
+  CURRENT_ROUTE: null,
+  CURRENT_STOP: null,
+  LAST_SCREEN: 'screen-home',
+  STOP_TYPE: 'DELIVERY'
+};
+
+// ==============================================
+// BARCODE SCANNER
+// ==============================================
+let html5QrcodeScanner = null;
+let isScannerActive = false;
+
+function initScanner() {
+  if (isScannerActive) {
+    return;
+  }
+
+  try {
+    // Stop any existing scanner
+    if (html5QrcodeScanner) {
+      stopScanner();
+    }
+
+    // Create new scanner
+    html5QrcodeScanner = new Html5QrcodeScanner(
+      "qr-reader", 
+      { 
+        fps: 10,
+        qrbox: { width: 120, height: 60 },
+        rememberLastUsedCamera: true,
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      },
+      false
+    );
+
+    // Start scanning
+    html5QrcodeScanner.render(
+      onScanSuccess,
+      onScanError
+    );
+    
+    isScannerActive = true;
+    document.getElementById('start-scanner-btn').textContent = 'Stop Camera';
+    document.getElementById('start-scanner-btn').classList.remove('btn-primary');
+    document.getElementById('start-scanner-btn').classList.add('btn-danger');
+    
+  } catch (error) {
+    console.error('Scanner init error:', error);
+    alert('Camera error: ' + error.message);
+    stopScanner();
+  }
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+  // Stop scanner after successful scan
+  stopScanner();
+  
+  // Play success sound if available
+  playBeepSound();
+  
+  // Save the scan
+  saveScan(decodedText);
+  
+  // Show success message
+  showScanSuccess(decodedText);
+}
+
+function onScanError(error) {
+  // Handle scan errors silently
+  console.log('Scan error:', error);
+}
+
+function stopScanner() {
+  if (html5QrcodeScanner) {
+    try {
+      html5QrcodeScanner.clear();
+    } catch (e) {
+      console.log('Scanner clear error:', e);
+    }
+    html5QrcodeScanner = null;
+  }
+  isScannerActive = false;
+  
+  const btn = document.getElementById('start-scanner-btn');
+  if (btn) {
+    btn.textContent = 'Start Camera';
+    btn.classList.remove('btn-danger');
+    btn.classList.add('btn-primary');
+  }
+}
+
+function playBeepSound() {
+  try {
+    // Create a beep sound
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
+  } catch (e) {
+    // Silent fail if audio not supported
+  }
+}
+
+function showScanSuccess(barcode) {
+  const scannerContainer = document.getElementById('scanner-container');
+  if (scannerContainer) {
+    const successDiv = document.createElement('div');
+    successDiv.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 204, 51, 0.9);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      font-size: 14px;
+      text-align: center;
+    `;
+    
+    successDiv.innerHTML = `
+      <div style="font-size: 20px; margin-bottom: 10px;">✓</div>
+      <div>SCAN SUCCESSFUL!</div>
+      <div style="font-family: monospace; margin-top: 5px; font-size: 12px;">${barcode}</div>
+      <div style="font-size: 10px; margin-top: 10px;">Scan saved to history</div>
+    `;
+    
+    scannerContainer.appendChild(successDiv);
+    
+    // Remove after 2 seconds
+    setTimeout(() => {
+      if (successDiv.parentNode) {
+        successDiv.parentNode.removeChild(successDiv);
+      }
+    }, 2000);
+  }
+}
+
+// ==============================================
+// LOCAL STORAGE KEYS
+// ==============================================
+const STORAGE_KEYS = {
+  COURIER: 'courier_data',
+  ROUTE: 'route_data',
+  STOPS: 'stops_data',
+  MESSAGES: 'messages_data',
+  SCANS: 'scans_data',
+  SYNC_QUEUE: 'sync_queue',
+  SIGNATURES: 'signatures_data',
+  EXCEPTIONS: 'exceptions_data'
+};
+
+// ==============================================
+// GPS TRACKING
+// ==============================================
+let currentPosition = null;
+let gpsWatchId = null;
+
+function initGPS() {
+  if (!navigator.geolocation) {
+    updateGPSStatus('GPS not supported', 'error');
+    return;
+  }
+
+  const options = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 30000
+  };
+
+  // Start watching position
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      currentPosition = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: new Date().toISOString()
+      };
+      updateGPSStatus(`${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`, 'active');
+    },
+    (error) => {
+      console.error('GPS Error:', error);
+      updateGPSStatus('GPS Error: ' + error.message, 'error');
+    },
+    options
+  );
+}
+
+function updateGPSStatus(text, status) {
+  const elements = ['home-gps', 'scan-gps', 'exception-gps', 'gps-login-status'];
+  elements.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = status === 'error' ? '⚠ ' + text : '📍 ' + text;
+      el.className = 'gps-status ' + (status || '');
+    }
+  });
+}
+
+function getGPSCoordinates() {
+  if (currentPosition) {
+    return {
+      latitude: currentPosition.latitude,
+      longitude: currentPosition.longitude,
+      accuracy: currentPosition.accuracy
+    };
+  }
+  return null;
+}
+
+// ==============================================
+// OFFLINE SYNC
+// ==============================================
+let syncQueue = [];
+let isSyncing = false;
+
+function loadSyncQueue() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE);
+    syncQueue = data ? JSON.parse(data) : [];
+  } catch (e) {
+    syncQueue = [];
+  }
+  updatePendingCount();
+}
+
+function saveSyncQueue() {
+  localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(syncQueue));
+  updatePendingCount();
+}
+
+function addToSyncQueue(action, data) {
+  const item = {
+    id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    action: action,
+    data: data,
+    timestamp: new Date().toISOString(),
+    retries: 0
+  };
+  syncQueue.push(item);
+  saveSyncQueue();
+  
+  // Try to sync immediately if online
+  if (navigator.onLine) {
+    processSyncQueue();
+  }
+}
+
+async function processSyncQueue() {
+  if (isSyncing || syncQueue.length === 0 || !navigator.onLine) return;
+  
+  isSyncing = true;
+  updateSyncStatus('syncing');
+  
+  const itemsToProcess = [...syncQueue];
+  
+  for (const item of itemsToProcess) {
+    try {
+      const result = await apiCall(item.action, item.data);
+      if (result.success) {
+        // Remove from queue
+        syncQueue = syncQueue.filter(q => q.id !== item.id);
+        saveSyncQueue();
+      } else {
+        item.retries++;
+        if (item.retries >= 3) {
+          // Remove after 3 failed attempts
+          syncQueue = syncQueue.filter(q => q.id !== item.id);
+          console.error('Sync item failed after 3 retries:', item);
+        }
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      item.retries++;
+    }
+  }
+  
+  isSyncing = false;
+  updateSyncStatus(navigator.onLine ? 'online' : 'offline');
+}
+
+function updatePendingCount() {
+  const el = document.getElementById('pending-sync');
+  if (el) el.textContent = syncQueue.length;
+}
+
+function updateSyncStatus(status) {
+  const dots = document.querySelectorAll('.sync-dot');
+  dots.forEach(dot => {
+    dot.className = 'sync-dot';
+    if (status === 'offline') dot.classList.add('offline');
+    if (status === 'syncing') dot.classList.add('syncing');
+  });
+  
+  const banner = document.getElementById('offline-banner');
+  if (banner) {
+    banner.classList.toggle('hidden', status !== 'offline');
+  }
+}
+
+// ==============================================
+// API CALLS
+// ==============================================
+async function apiCall(action, data = {}) {
+  if (!CONFIG.API_BASE_URL) {
+    console.log('No API URL configured, using local storage only');
+    return handleLocalAction(action, data);
+  }
+
+  const params = new URLSearchParams();
+  params.append('action', action);
+  Object.keys(data).forEach(key => {
+    if (data[key] !== null && data[key] !== undefined) {
+      params.append(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : String(data[key]));
+    }
+  });
+
+  try {
+    const response = await fetch(`${CONFIG.API_BASE_URL}?${params.toString()}`, {
+      method: 'POST',
+      mode: 'cors'
+    });
+    
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { success: true, message: 'Request sent' };
+    }
+  } catch (error) {
+    console.error('API Error:', error);
+    return handleLocalAction(action, data);
+  }
+}
+
+function handleLocalAction(action, data) {
+  // Handle actions locally when offline or no API configured
+  switch(action) {
+    case 'login':
+      return { success: true, courierId: data.courierId, name: 'Courier ' + data.courierId };
+    case 'saveScan':
+    case 'saveException':
+    case 'saveSignature':
+    case 'updateStop':
+      // These will be synced later
+      return { success: true, message: 'Saved locally' };
+    default:
+      return { success: true };
+  }
+}
+
+// ==============================================
+// MOCK DATA
+// ==============================================
+function getMockDeliveries() {
+  return [
+    { stopId: 'D001', routeId: 'R001', stopNumber: 1, type: 'DELIVERY', name: 'John Smith', address: '123 Main St', city: 'New York', zip: '10001', phone: '555-0101', parcelCount: 2, status: 'PENDING', notes: '', trackingNumbers: ['PKG001', 'PKG002'] },
+    { stopId: 'D002', routeId: 'R001', stopNumber: 2, type: 'DELIVERY', name: 'Sarah Johnson', address: '456 Oak Ave', city: 'New York', zip: '10002', phone: '555-0102', parcelCount: 1, status: 'PENDING', notes: 'Ring doorbell twice', trackingNumbers: ['PKG003'] },
+    { stopId: 'D003', routeId: 'R001', stopNumber: 3, type: 'DELIVERY', name: 'Robert Brown', address: '789 Pine St', city: 'New York', zip: '10003', phone: '555-0103', parcelCount: 3, status: 'PENDING', notes: '', trackingNumbers: ['PKG004', 'PKG005', 'PKG006'] },
+    { stopId: 'D004', routeId: 'R001', stopNumber: 4, type: 'DELIVERY', name: 'Emily Davis', address: '321 Elm Blvd', city: 'New York', zip: '10004', phone: '555-0104', parcelCount: 1, status: 'PENDING', notes: 'Leave at back door', trackingNumbers: ['PKG007'] },
+    { stopId: 'D005', routeId: 'R001', stopNumber: 5, type: 'DELIVERY', name: 'Michael Wilson', address: '654 Maple Dr', city: 'New York', zip: '10005', phone: '555-0105', parcelCount: 2, status: 'PENDING', notes: '', trackingNumbers: ['PKG008', 'PKG009'] }
+  ];
+}
+
+function getMockPickups() {
+  return [
+    { stopId: 'P001', routeId: 'R001', stopNumber: 1, type: 'PICKUP', name: 'ABC Electronics', address: '100 Commerce St', city: 'New York', zip: '10010', phone: '555-2001', parcelCount: 5, status: 'PENDING', notes: 'Ring buzzer 4A', trackingNumbers: [] },
+    { stopId: 'P002', routeId: 'R001', stopNumber: 2, type: 'PICKUP', name: 'Fashion Forward Inc', address: '200 Style Ave', city: 'New York', zip: '10011', phone: '555-2002', parcelCount: 12, status: 'PENDING', notes: 'Use loading dock', trackingNumbers: [] },
+    { stopId: 'P003', routeId: 'R001', stopNumber: 3, type: 'PICKUP', name: 'Book Warehouse', address: '300 Reader Ln', city: 'New York', zip: '10012', phone: '555-2003', parcelCount: 8, status: 'PENDING', notes: '', trackingNumbers: [] }
+  ];
+}
+
+function getMockMessages() {
+  return [
+    { messageId: 'M001', from: 'Dispatch Center', subject: 'Route Update', body: 'Your route has been optimized. Please check your deliveries list for the new stop order. Priority deliveries have been moved to the top.', timestamp: new Date(Date.now() - 3600000).toISOString(), read: false, priority: 'HIGH' },
+    { messageId: 'M002', from: 'Operations', subject: 'Weather Advisory', body: 'Heavy rain expected this afternoon. Please exercise caution and ensure all packages are protected from water damage. Consider using plastic bags for sensitive items.', timestamp: new Date(Date.now() - 7200000).toISOString(), read: false, priority: 'NORMAL' },
+    { messageId: 'M003', from: 'HR Department', subject: 'Training Reminder', body: 'Reminder: Safety training session scheduled for Friday at 9 AM. Attendance is mandatory for all delivery personnel.', timestamp: new Date(Date.now() - 86400000).toISOString(), read: true, priority: 'LOW' },
+    { messageId: 'M004', from: 'Dispatch Center', subject: 'URGENT: Customer Callback', body: 'Customer at Stop 3 requests callback before delivery. Please contact them at 555-0103 before arriving.', timestamp: new Date(Date.now() - 1800000).toISOString(), read: false, priority: 'URGENT' }
+  ];
+}
+
+const EXCEPTION_TYPES = [
+  { code: 'NOT_HOME', label: 'Customer Not Home' },
+  { code: 'WRONG_ADDRESS', label: 'Wrong Address' },
+  { code: 'REFUSED', label: 'Delivery Refused' },
+  { code: 'DAMAGED', label: 'Package Damaged' },
+  { code: 'ACCESS_ISSUE', label: 'Access Issue' },
+  { code: 'BUSINESS_CLOSED', label: 'Business Closed' },
+  { code: 'HAZARD', label: 'Safety Hazard' },
+  { code: 'OTHER', label: 'Other' }
+];
+
+// ==============================================
+// LOGIN
+// ==============================================
+async function performLogin() {
+  const courierId = document.getElementById('courier-id-input').value.trim();
+  if (!courierId) {
+    showStatus('login-status', 'Please enter Courier ID', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'LOGGING IN...';
+  showStatus('login-status', 'Connecting...', 'loading');
+
+  try {
+    const result = await apiCall('login', { courierId: courierId });
+    
+    if (result.success) {
+      CONFIG.COURIER_ID = courierId;
+      CONFIG.CURRENT_ROUTE = 'R001';
+      
+      // Save to local storage
+      localStorage.setItem(STORAGE_KEYS.COURIER, JSON.stringify({ courierId, name: result.name || 'Courier ' + courierId }));
+      
+      // Load mock data
+      const deliveries = getMockDeliveries();
+      const pickups = getMockPickups();
+      const messages = getMockMessages();
+      
+      localStorage.setItem(STORAGE_KEYS.STOPS, JSON.stringify([...deliveries, ...pickups]));
+      localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
+      
+      // Update UI
+      document.getElementById('home-courier').textContent = 'ID: ' + courierId;
+      updateBadges();
+      
+      showStatus('login-status', 'Login successful!', 'success');
+      
+      setTimeout(() => {
+        go('screen-home');
+      }, 500);
+    } else {
+      throw new Error(result.message || 'Login failed');
+    }
+  } catch (error) {
+    showStatus('login-status', 'Error: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'LOGIN';
+  }
+}
+
+// ==============================================
+// NAVIGATION
+// ==============================================
+function go(screenId) {
+  // Stop scanner when leaving scan screen
+  if (!screenId.includes('scan') && isScannerActive) {
+    stopScanner();
+  }
+  
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const screen = document.getElementById(screenId);
+  if (screen) {
+    screen.classList.add('active');
+    updateClock();
+  }
+}
+
+function goBackFromStop() {
+  go(CONFIG.STOP_TYPE === 'PICKUP' ? 'screen-pickups' : 'screen-deliveries');
+}
+
+function goBackFromScan() {
+  stopScanner();
+  go(CONFIG.CURRENT_STOP ? 'screen-stop' : 'screen-home');
+}
+
+function goBackFromScanHistory() {
+  go(CONFIG.CURRENT_STOP ? 'screen-stop' : 'screen-scan');
+}
+
+// ==============================================
+// DELIVERIES
+// ==============================================
+function loadDeliveries() {
+  go('screen-deliveries');
+  
+  try {
+    const stops = JSON.parse(localStorage.getItem(STORAGE_KEYS.STOPS) || '[]');
+    const deliveries = stops.filter(s => s.type === 'DELIVERY');
+    
+    const list = document.getElementById('deliveries-list');
+    if (deliveries.length === 0) {
+      list.innerHTML = '<div class="list-item"><div class="list-item-title">No deliveries</div></div>';
+    } else {
+      list.innerHTML = deliveries.map(stop => `
+        <div class="list-item" onclick="loadStop('${stop.stopId}', 'DELIVERY')">
+          <div class="list-item-title">${stop.stopNumber}. ${stop.name}</div>
+          <div class="list-item-sub">${stop.address}, ${stop.city}</div>
+          <div class="list-item-sub">Parcels: ${stop.parcelCount} | <span class="status-${stop.status.toLowerCase().replace('_', '-')}">${stop.status}</span></div>
+        </div>
+      `).join('');
+    }
+    
+    document.getElementById('deliveries-count').textContent = deliveries.length;
+  } catch (e) {
+    console.error('Load deliveries error:', e);
+  }
+}
+
+// ==============================================
+// PICKUPS
+// ==============================================
+function loadPickups() {
+  go('screen-pickups');
+  
+  try {
+    const stops = JSON.parse(localStorage.getItem(STORAGE_KEYS.STOPS) || '[]');
+    const pickups = stops.filter(s => s.type === 'PICKUP');
+    
+    const list = document.getElementById('pickups-list');
+    if (pickups.length === 0) {
+      list.innerHTML = '<div class="list-item"><div class="list-item-title">No pickups</div></div>';
+    } else {
+      list.innerHTML = pickups.map(stop => `
+        <div class="list-item" onclick="loadStop('${stop.stopId}', 'PICKUP')">
+          <div class="list-item-title">${stop.stopNumber}. ${stop.name}</div>
+          <div class="list-item-sub">${stop.address}, ${stop.city}</div>
+          <div class="list-item-sub">Parcels: ${stop.parcelCount} | <span class="status-${stop.status.toLowerCase().replace('_', '-')}">${stop.status}</span></div>
+        </div>
+      `).join('');
+    }
+    
+    document.getElementById('pickups-count').textContent = pickups.length;
+  } catch (e) {
+    console.error('Load pickups error:', e);
+  }
+}
+
+// ==============================================
+// MESSAGES
+// ==============================================
+function loadMessages() {
+  go('screen-messages');
+  
+  try {
+    const messages = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
+    
+    const list = document.getElementById('messages-list');
+    if (messages.length === 0) {
+      list.innerHTML = '<div class="list-item"><div class="list-item-title">No messages</div></div>';
+    } else {
+      list.innerHTML = messages.map(msg => {
+        let itemClass = 'list-item';
+        if (!msg.read) itemClass += ' unread';
+        if (msg.priority === 'HIGH') itemClass += ' priority-high';
+        if (msg.priority === 'URGENT') itemClass += ' priority-urgent';
+        
+        const time = new Date(msg.timestamp);
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        return `
+          <div class="${itemClass}" onclick="loadMessage('${msg.messageId}')">
+            <div class="list-item-title">${msg.subject}</div>
+            <div class="list-item-sub">From: ${msg.from} | ${timeStr}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    const unread = messages.filter(m => !m.read).length;
+    document.getElementById('unread-count').textContent = unread;
+  } catch (e) {
+    console.error('Load messages error:', e);
+  }
+}
+
+function loadMessage(messageId) {
+  try {
+    const messages = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
+    const msg = messages.find(m => m.messageId === messageId);
+    
+    if (msg) {
+      // Mark as read
+      msg.read = true;
+      localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
+      
+      // Update UI
+      document.getElementById('message-subject').textContent = msg.subject;
+      document.getElementById('message-from').textContent = 'From: ' + msg.from;
+      document.getElementById('message-timestamp').textContent = new Date(msg.timestamp).toLocaleString();
+      document.getElementById('message-body').textContent = msg.body;
+      
+      updateBadges();
+      go('screen-message-detail');
+    }
+  } catch (e) {
+    console.error('Load message error:', e);
+  }
+}
+
+// ==============================================
+// STOP DETAIL
+// ==============================================
+function loadStop(stopId, type) {
+  CONFIG.CURRENT_STOP = stopId;
+  CONFIG.STOP_TYPE = type;
+  
+  try {
+    const stops = JSON.parse(localStorage.getItem(STORAGE_KEYS.STOPS) || '[]');
+    const stop = stops.find(s => s.stopId === stopId);
+    
+    if (stop) {
+      document.getElementById('stop-name').textContent = stop.name;
+      document.getElementById('stop-number').textContent = 'Stop ' + stop.stopNumber;
+      document.getElementById('stop-status').textContent = stop.status;
+      document.getElementById('stop-status').className = 'status-' + stop.status.toLowerCase().replace('_', '-');
+      document.getElementById('current-stop-scan').textContent = stop.name;
+      
+      const completeBtn = document.getElementById('mark-complete-btn');
+      completeBtn.textContent = type === 'PICKUP' ? 'Mark Picked Up' : 'Mark Delivered';
+      
+      document.getElementById('stop-details').innerHTML = `
+        <div><b>Address:</b> ${stop.address}</div>
+        <div>${stop.city}, ${stop.zip}</div>
+        ${stop.phone ? `<div><b>Phone:</b> ${stop.phone}</div>` : ''}
+        <div><b>Parcels:</b> ${stop.parcelCount}</div>
+        ${stop.notes ? `<div style="color: #F7C600;"><b>Note:</b> ${stop.notes}</div>` : ''}
+      `;
+      
+      go('screen-stop');
+    }
+  } catch (e) {
+    console.error('Load stop error:', e);
+  }
+}
+
+// ==============================================
+// SCANNING
+// ==============================================
+function goToScanFromHome() {
+  CONFIG.CURRENT_STOP = null;
+  CONFIG.LAST_SCREEN = 'screen-home';
+  document.getElementById('current-stop-scan').textContent = 'No stop selected';
+  go('screen-scan');
+}
+
+function goToScan() {
+  CONFIG.LAST_SCREEN = 'screen-stop';
+  go('screen-scan');
+}
+
+function manualBarcodeEntry() {
+  stopScanner();
+  const barcode = prompt('Enter barcode:');
+  if (barcode && barcode.trim()) {
+    saveScan(barcode.trim());
+  }
+}
+
+function saveScan(barcode) {
+  const gps = getGPSCoordinates();
+  
+  const scan = {
+    scanId: 'S' + Date.now(),
+    stopId: CONFIG.CURRENT_STOP || 'UNKNOWN',
+    courierId: CONFIG.COURIER_ID,
+    barcode: barcode,
+    scanType: CONFIG.STOP_TYPE || 'SCAN',
+    timestamp: new Date().toISOString(),
+    latitude: gps?.latitude || null,
+    longitude: gps?.longitude || null,
+    accuracy: gps?.accuracy || null
+  };
+  
+  // Save locally
+  try {
+    const scans = JSON.parse(localStorage.getItem(STORAGE_KEYS.SCANS) || '[]');
+    scans.unshift(scan);
+    localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify(scans));
+    
+    // Update count
+    document.getElementById('today-scans').textContent = scans.length;
+    document.getElementById('scan-badge').textContent = scans.length;
+  } catch (e) {
+    console.error('Save scan error:', e);
+  }
+  
+  // Add to sync queue
+  addToSyncQueue('saveScan', scan);
+}
+
+function loadScanHistory() {
+  try {
+    const scans = JSON.parse(localStorage.getItem(STORAGE_KEYS.SCANS) || '[]');
+    const list = document.getElementById('scan-history-list');
+    
+    // Filter by current stop if set
+    const filtered = CONFIG.CURRENT_STOP 
+      ? scans.filter(s => s.stopId === CONFIG.CURRENT_STOP)
+      : scans;
+    
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="list-item"><div class="list-item-title">No scans</div></div>';
+    } else {
+      list.innerHTML = filtered.map(scan => {
+        const time = new Date(scan.timestamp);
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="scan-item">
+            <div class="scan-barcode">${scan.barcode}</div>
+            <div>${scan.scanType} | ${timeStr}</div>
+            ${scan.latitude ? `<div style="font-size: 9px; color: #888;">📍 ${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+    
+    document.getElementById('scan-history-count').textContent = filtered.length;
+  } catch (e) {
+    console.error('Load scan history error:', e);
+  }
+}
+
+// Override go function to load scan history when navigating to that screen
+const originalGo = go;
+go = function(screenId) {
+  originalGo(screenId);
+  if (screenId === 'screen-scan-history') {
+    loadScanHistory();
+  }
+  if (screenId === 'screen-exceptions') {
+    loadExceptions();
+  }
+  if (screenId === 'screen-scan') {
+    stopScanner();
+  }
+};
+
+// ==============================================
+// SIGNATURE CAPTURE
+// ==============================================
+let signatureCanvas, signatureCtx;
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+
+function initSignatureCanvas() {
+  signatureCanvas = document.getElementById('signature-canvas');
+  if (!signatureCanvas) return;
+  
+  signatureCtx = signatureCanvas.getContext('2d');
+  signatureCtx.strokeStyle = '#000';
+  signatureCtx.lineWidth = 2;
+  signatureCtx.lineCap = 'round';
+  
+  // Mouse events
+  signatureCanvas.addEventListener('mousedown', startDrawing);
+  signatureCanvas.addEventListener('mousemove', draw);
+  signatureCanvas.addEventListener('mouseup', stopDrawing);
+  signatureCanvas.addEventListener('mouseout', stopDrawing);
+  
+  // Touch events
+  signatureCanvas.addEventListener('touchstart', handleTouchStart);
+  signatureCanvas.addEventListener('touchmove', handleTouchMove);
+  signatureCanvas.addEventListener('touchend', stopDrawing);
+}
+
+function startDrawing(e) {
+  isDrawing = true;
+  [lastX, lastY] = [e.offsetX, e.offsetY];
+}
+
+function draw(e) {
+  if (!isDrawing) return;
+  signatureCtx.beginPath();
+  signatureCtx.moveTo(lastX, lastY);
+  signatureCtx.lineTo(e.offsetX, e.offsetY);
+  signatureCtx.stroke();
+  [lastX, lastY] = [e.offsetX, e.offsetY];
+}
+
+function stopDrawing() {
+  isDrawing = false;
+}
+
+function handleTouchStart(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const rect = signatureCanvas.getBoundingClientRect();
+  isDrawing = true;
+  lastX = touch.clientX - rect.left;
+  lastY = touch.clientY - rect.top;
+}
+
+function handleTouchMove(e) {
+  e.preventDefault();
+  if (!isDrawing) return;
+  
+  const touch = e.touches[0];
+  const rect = signatureCanvas.getBoundingClientRect();
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  
+  signatureCtx.beginPath();
+  signatureCtx.moveTo(lastX, lastY);
+  signatureCtx.lineTo(x, y);
+  signatureCtx.stroke();
+  
+  lastX = x;
+  lastY = y;
+}
+
+function clearSignature() {
+  if (signatureCtx) {
+    signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+  }
+  document.getElementById('signer-name').value = '';
+}
+
+function goToSignature() {
+  go('screen-signature');
+  clearSignature();
+}
+
+function saveSignatureAndComplete() {
+  const name = document.getElementById('signer-name').value.trim();
+  const relationship = document.getElementById('signer-relationship').value;
+  
+  if (!name) {
+    alert('Please enter the signer name');
+    return;
+  }
+  
+  // Check if signature has content
+  const imageData = signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height);
+  const hasSignature = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
+  
+  if (!hasSignature) {
+    alert('Please provide a signature');
+    return;
+  }
+  
+  const gps = getGPSCoordinates();
+  const signatureData = signatureCanvas.toDataURL('image/png');
+  
+  const signature = {
+    signatureId: 'SIG' + Date.now(),
+    stopId: CONFIG.CURRENT_STOP,
+    courierId: CONFIG.COURIER_ID,
+    signerName: name,
+    relationship: relationship,
+    signatureImage: signatureData,
+    timestamp: new Date().toISOString(),
+    latitude: gps?.latitude || null,
+    longitude: gps?.longitude || null
+  };
+  
+  // Save locally
+  try {
+    const signatures = JSON.parse(localStorage.getItem(STORAGE_KEYS.SIGNATURES) || '[]');
+    signatures.push(signature);
+    localStorage.setItem(STORAGE_KEYS.SIGNATURES, JSON.stringify(signatures));
+  } catch (e) {
+    console.error('Save signature error:', e);
+  }
+  
+  // Update stop status
+  updateStopStatus(CONFIG.CURRENT_STOP, CONFIG.STOP_TYPE === 'PICKUP' ? 'PICKED_UP' : 'DELIVERED');
+  
+  // Add to sync queue
+  addToSyncQueue('saveSignature', signature);
+  
+  alert('✓ ' + (CONFIG.STOP_TYPE === 'PICKUP' ? 'Pickup' : 'Delivery') + ' completed!');
+  goBackFromStop();
+}
+
+function updateStopStatus(stopId, status) {
+  try {
+    const stops = JSON.parse(localStorage.getItem(STORAGE_KEYS.STOPS) || '[]');
+    const stopIndex = stops.findIndex(s => s.stopId === stopId);
+    
+    if (stopIndex !== -1) {
+      stops[stopIndex].status = status;
+      localStorage.setItem(STORAGE_KEYS.STOPS, JSON.stringify(stops));
+      updateBadges();
+      
+      // Add to sync queue
+      addToSyncQueue('updateStop', { stopId, status, timestamp: new Date().toISOString() });
+    }
+  } catch (e) {
+    console.error('Update stop status error:', e);
+  }
+}
+
+// ==============================================
+// EXCEPTIONS
+// ==============================================
+let currentExceptionType = null;
+
+function loadExceptions() {
+  const list = document.getElementById('exceptions-list');
+  list.innerHTML = EXCEPTION_TYPES.map(ex => `
+    <div class="list-item" onclick="selectException('${ex.code}', '${ex.label}')">
+      <div class="list-item-title">${ex.label}</div>
+    </div>
+  `).join('');
+}
+
+function selectException(code, label) {
+  currentExceptionType = code;
+  document.getElementById('exception-title').textContent = label;
+  document.getElementById('exception-notes').value = '';
+  document.getElementById('exception-action').value = '';
+  document.getElementById('exception-contact').value = 'NONE';
+  
+  const gps = getGPSCoordinates();
+  document.getElementById('exception-gps').textContent = gps 
+    ? `GPS: ${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}`
+    : 'GPS: Not available';
+  
+  go('screen-exception-detail');
+}
+
+function saveException() {
+  const notes = document.getElementById('exception-notes').value.trim();
+  const action = document.getElementById('exception-action').value;
+  const contact = document.getElementById('exception-contact').value;
+  
+  if (!notes) {
+    alert('Please enter notes');
+    return;
+  }
+  
+  const gps = getGPSCoordinates();
+  
+  const exception = {
+    exceptionId: 'EXC' + Date.now(),
+    stopId: CONFIG.CURRENT_STOP,
+    courierId: CONFIG.COURIER_ID,
+    exceptionType: currentExceptionType,
+    notes: notes,
+    actionTaken: action,
+    customerContacted: contact,
+    timestamp: new Date().toISOString(),
+    latitude: gps?.latitude || null,
+    longitude: gps?.longitude || null
+  };
+  
+  // Save locally
+  try {
+    const exceptions = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXCEPTIONS) || '[]');
+    exceptions.push(exception);
+    localStorage.setItem(STORAGE_KEYS.EXCEPTIONS, JSON.stringify(exceptions));
+  } catch (e) {
+    console.error('Save exception error:', e);
+  }
+  
+  // Update stop status
+  updateStopStatus(CONFIG.CURRENT_STOP, 'EXCEPTION');
+  
+  // Add to sync queue
+  addToSyncQueue('saveException', exception);
+  
+  alert('✓ Exception saved');
+  go('screen-stop');
+}
+
+// ==============================================
+// UI HELPERS
+// ==============================================
+function updateClock() {
+  const now = new Date();
+  const time = now.toTimeString().substr(0, 5);
+  
+  document.querySelectorAll('[id$="-time"]').forEach(el => {
+    el.textContent = time;
+  });
+  
+  document.getElementById('home-time').textContent = time;
+}
+
+function showStatus(elementId, message, type) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = message;
+    el.className = 'status-text ' + type;
+  }
+}
+
+function updateBadges() {
+  try {
+    const stops = JSON.parse(localStorage.getItem(STORAGE_KEYS.STOPS) || '[]');
+    const messages = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
+    const scans = JSON.parse(localStorage.getItem(STORAGE_KEYS.SCANS) || '[]');
+    
+    const deliveries = stops.filter(s => s.type === 'DELIVERY' && s.status === 'PENDING');
+    const pickups = stops.filter(s => s.type === 'PICKUP' && s.status === 'PENDING');
+    const unread = messages.filter(m => !m.read);
+    
+    document.getElementById('delivery-badge').textContent = deliveries.length;
+    document.getElementById('pickup-badge').textContent = pickups.length;
+    document.getElementById('message-badge').textContent = unread.length;
+    document.getElementById('scan-badge').textContent = scans.length;
+    document.getElementById('today-scans').textContent = scans.length;
+    
+    // Update route info
+    const completed = stops.filter(s => s.status === 'DELIVERED' || s.status === 'PICKED_UP').length;
+    document.getElementById('route-info').textContent = `${completed}/${stops.length}`;
+  } catch (e) {
+    console.error('Update badges error:', e);
+  }
+}
+
+function updateNetworkStatus() {
+  const status = navigator.onLine ? 'Online' : 'Offline';
+  const statusClass = navigator.onLine ? 'success' : 'error';
+  
+  document.getElementById('network-status').textContent = status;
+  document.getElementById('network-status').className = statusClass;
+  
+  updateSyncStatus(navigator.onLine ? 'online' : 'offline');
+  
+  if (navigator.onLine) {
+    processSyncQueue();
+  }
+}
+
+// ==============================================
+// INITIALIZATION
+// ==============================================
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Courier System v2.0 initializing...');
+  
+  // Initialize GPS
+  initGPS();
+  
+  // Initialize signature canvas
+  initSignatureCanvas();
+  
+  // Initialize offline sync
+  loadSyncQueue();
+  
+  // Set up network status
+  updateNetworkStatus();
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  
+  // Start clock
+  updateClock();
+  setInterval(updateClock, 60000);
+  
+  // Sync queue every 30 seconds
+  setInterval(processSyncQueue, 30000);
+  
+  // Focus login input
+  const loginInput = document.getElementById('courier-id-input');
+  if (loginInput) {
+    loginInput.focus();
+    loginInput.value = '10001';
+  }
+  
+  console.log('Initialization complete');
+});
+</script>
+</body>
+</html>
